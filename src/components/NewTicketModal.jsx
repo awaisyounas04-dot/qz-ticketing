@@ -1,9 +1,13 @@
 import { useState } from 'react';
 
 const EMPTY = {
-  customer_name: '', contact: '', device_type: '', serial: '',
-  issue_description: '', priority: 'normal', technician: '',
-  estimated_cost: '', notes: ''
+  device_type: '',
+  serial: '',
+  issue_description: '',
+  priority: 'normal',
+  technician: '',
+  estimated_cost: '',
+  notes: ''
 };
 
 export default function NewTicketModal({ onClose, onSubmit }) {
@@ -14,8 +18,8 @@ export default function NewTicketModal({ onClose, onSubmit }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (!form.customer_name.trim()) { setError('Customer name is required.'); return; }
     if (!form.device_type.trim()) { setError('Device type is required.'); return; }
+    if (!form.issue_description.trim()) { setError('Issue description is required.'); return; }
     setSaving(true); setError('');
     try {
       await onSubmit(form);
@@ -36,25 +40,13 @@ export default function NewTicketModal({ onClose, onSubmit }) {
         </div>
         <div className="modal-body">
           <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Customer Name *</label>
-              <input className="form-input" value={form.customer_name} onChange={e => set('customer_name', e.target.value)} placeholder="e.g. Saudi Aramco" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Contact / Phone</label>
-              <input className="form-input" value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="+966 5xx xxx xxxx" />
-            </div>
-            <div className="form-group">
+            <div className="form-group full">
               <label className="form-label">Device Type *</label>
-              <input className="form-input" value={form.device_type} onChange={e => set('device_type', e.target.value)} placeholder="e.g. Siemens PLC S7-400" />
+              <input className="form-input" value={form.device_type} onChange={e => set('device_type', e.target.value)} placeholder="e.g. Siemens PLC S7-400, Beckhoff CP2621" autoFocus />
             </div>
             <div className="form-group">
               <label className="form-label">Serial / Model #</label>
               <input className="form-input" value={form.serial} onChange={e => set('serial', e.target.value)} placeholder="Optional" />
-            </div>
-            <div className="form-group full">
-              <label className="form-label">Issue Description</label>
-              <textarea className="form-input" value={form.issue_description} onChange={e => set('issue_description', e.target.value)} placeholder="Describe the fault or repair needed..." />
             </div>
             <div className="form-group">
               <label className="form-label">Priority</label>
@@ -64,6 +56,10 @@ export default function NewTicketModal({ onClose, onSubmit }) {
                 <option value="low">Low</option>
               </select>
             </div>
+            <div className="form-group full">
+              <label className="form-label">Issue Description *</label>
+              <textarea className="form-input" value={form.issue_description} onChange={e => set('issue_description', e.target.value)} placeholder="Describe the fault or repair needed..." />
+            </div>
             <div className="form-group">
               <label className="form-label">Technician</label>
               <input className="form-input" value={form.technician} onChange={e => set('technician', e.target.value)} placeholder="Assign technician" />
@@ -72,9 +68,9 @@ export default function NewTicketModal({ onClose, onSubmit }) {
               <label className="form-label">Estimated Cost (SAR)</label>
               <input className="form-input" type="number" value={form.estimated_cost} onChange={e => set('estimated_cost', e.target.value)} placeholder="0.00" />
             </div>
-            <div className="form-group">
+            <div className="form-group full">
               <label className="form-label">Internal Notes</label>
-              <input className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Optional notes..." />
+              <input className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Optional internal notes..." />
             </div>
           </div>
           {error && <p style={{ color: '#e24b4a', fontSize: 12, marginTop: 10 }}>{error}</p>}
