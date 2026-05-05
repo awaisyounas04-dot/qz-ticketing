@@ -46,6 +46,153 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange }) {
   const nextApprovedStatus = () => {
     const idx = APPROVED_FLOW.indexOf(ticket.status);
     return idx >= 0 && idx < APPROVED_FLOW.length - 1 ? APPROVED_FLOW[idx + 1] : null;
+  };
+
+  const handleAdvance = async (nextStatus) => {
+    setSaving(true);
+    const extra = nextStatus === 'completed' ? completionData : {};
+    await onStatusChange(ticket.ticket_number, nextStatus, extra);
+    setSaving(false);
+    onClose();
+  };
+
+  const totalCost = () => {
+    const p = Number(completionData.parts_cost) || 0;
+    const l = Number(completionData.labour_cost) || 0;
+    return p + l > 0 ? fmtCost(p + l) : '—';
+  };
+
+  const nextIntake = nextIntakeStatus();
+  const nextApproved = nextApprovedStatus();
+
+  const NEXT_LABELS = {
+    diagnosed: 'Mark as Diagnosed',
+    quote_sent: 'Mark Quote Sent',
+    awaiting_approval: 'Send for Approval',
+    parts_sourced: 'Mark Parts Sourced',
+    ready_for_delivery: 'Mark Ready for Delivery',
+    completed: 'Mark Completed',
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        <div className="modal-head">
+          <div>
+            <span className="modal-title">{ticket.ticket_number}</span>
+            <span className={`status-pill ${meta.pill}`} style={{ marginLeft: 12, verticalAlign: 'middle' }}>
+              <span className="dot" />{meta.label}
+            </span>
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="detail-section">
+            <div className="detail-section-title">Device</div>
+            <div className="detail-row"><span className="detail-key">Type</span><span className="detail-val">{ticket.device_type || '—'}</span></div>
+            <div className="detail-row"><span className="detail-key">Serial / Model</span><span className="detail-val">{ticket.serial || '—'}</span></div>
+            <div className="detail-row"><span className="detail-key">Issue</span><span className="detail-val" style={{ maxWidth: 340, textAlign: 'right' }}>{ticket.issue_description || '—'}</span></div>
+          </div>
+
+          <div className="detail-section">
+            <div className="detail-section-title">Repair Details</div>
+            <div className="detail-row"><span className="detail-key">Priority</span><span className="detail-val">{ticket.priority ? ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1) : 'Normal'}</span></div>
+            <div className="detail-row"><span className="detail-key">Technician</span><span className="detail-val">{ticket.technician || '—'}</span></div>
+            <div className="detail-row"><span className="detail-key">Estimated Cost</span><span className="detail-val">{fmtCost(ticket.estimated_cost)}</span></div>
+            <div className="detail-row"><span className="detail-key">Notes</span><span className="detail-val">{ticket.notes || '—'}</span></div>
+          </div>
+
+          {(isApproved || isCompleted) && (
+            <div className="detail-section">
+              <div className="detail-section-title">Cost Breakdown</div>
+              {isCompleted ? (
+                <>
+                  <div className="detail-row"><span className="detail-key">Parts Cost</span><span className="detail-val">{fmtCost(ticket.parts_cost)}</span></div>
+                  <div className="detail-row"><span className="detail-key">Labour Cost</span><span className="detail-val">{fmtCost(ticket.labour_cost)}</span></div>
+                  <div className="detail-row" style={{ borderTop: '0.5px solid var(--color-border-tertiary)', marginTop: 4, paddingTop: 8 }}>
+                    <span className="detail-key" style={{ fontWeight: 600 }}>Total Actual Cost</span>
+                    <span className="detail-val" style={{ fontWeight: 600, color: '#1e7e4a' }}>{fmtCost(ticket.actual_cost)}</span>
+                  </div>
+                  {ticket.completion_notes && (
+                    <div className="detail-row"><span className="detail-key">Completion Notes</span><span className="detail-val">{ticket.completion_notes}</span></div>
+                  )}
+                </>
+              ) : nextApproved === 'completed' ? (
+                <div className="form-grid" style={{ marginTop: 8 }}>
+                  <div className="form-group">
+                    <label className="form-label">Parts Cost (SAR)</label>
+                    <input className="form-input" type="number" placeholder="0.00"
+                      value={completionData.parts_cost}
+                      onChange={e => setCompletionData(d => ({ ...d, parts_cost: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Labour Cost (SAR)</label>
+                    <input className="form-input" type="number" placeholder="0.00"
+                      value={completionData.labour_cost}
+                      onChange={e => setCompletionData(d => ({ ...d, labour_cost: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Total Actual Cost (SAR)</label>
+                    <input className="form-input" type="number" placeholder="Auto or override"
+                      value={completionData.actual_cost}
+                      onChange={e => setCompletionData(d => ({ ...d, actual_cost: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Computed Total</label>
+                    <div style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, color: '#1e7e4a' }}>{totalCost()}</div>
+                  </div>
+                  <div className="form-group full">
+                    <label className="form-label">Completion Notes</label>
+                    <textarea className="form-input" placeholder="Final notes, warranty info..."
+                      value={completionData.completion_notes}
+                      onChange={e => setCompletionData(d => ({ ...d, completion_notes: e.target.value }))} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="detail-row"><span className="detail-key">Parts Cost</span><span className="detail-val">{fmtCost(ticket.parts_cost)}</span></div>
+                  <div className="detail-row"><span className="detail-key">Labour Cost</span><span className="detail-val">{fmtCost(ticket.labour_cost)}</span></div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="detail-section">
+            <div className="detail-section-title">Timeline</div>
+            <div className="detail-row"><span className="detail-key">Created</span><span className="detail-val">{fmtDate(ticket.created_at)}</span></div>
+            <div className="detail-row"><span className="detail-key">Last Updated</span><span className="detail-val">{fmtDate(ticket.updated_at)}</span></div>
+          </div>
+        </div>
+
+        <div className="modal-foot">
+          <button className="btn-cancel" onClick={onClose}>Close</button>
+          {isIntake && nextIntake && nextIntake !== 'awaiting_approval' && (
+            <button className="btn-submit" style={{ background: '#1a6fc4' }} disabled={saving}
+              onClick={() => handleAdvance(nextIntake)}>
+              {saving ? '...' : NEXT_LABELS[nextIntake]}
+            </button>
+          )}
+          {ticket.status === 'quote_sent' && (
+            <button className="btn-submit" style={{ background: '#b36b00' }} disabled={saving}
+              onClick={() => handleAdvance('awaiting_approval')}>
+              {saving ? '...' : 'Send for Approval'}
+            </button>
+          )}
+          {ticket.status === 'awaiting_approval' && (
+            <button className="btn-submit" style={{ background: '#1e7e4a' }} disabled={saving}
+              onClick={() => handleAdvance('parts_sourced')}>
+              {saving ? '...' : '✓ Approve — Move to Approved Queue'}
+            </button>
+          )}
+          {isApproved && nextApproved && (
+            <button className="btn-submit"
+              style={{ background: nextApproved === 'completed' ? '#1e7e4a' : '#0f6e56' }}
+              disabled={saving}
+              onClick={() => handleAdvance(nextApproved)}>
+              {saving ? '...' : NEXT_LABELS[nextApproved]}
+            </button>
+          )}
         </div>
       </div>
     </div>
