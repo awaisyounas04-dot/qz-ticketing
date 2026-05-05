@@ -1,19 +1,40 @@
 import { useState } from 'react';
 
 const STATUS_META = {
-  new:                { label: 'New',                   pill: 'intake',    queue: 'intake' },
-  diagnosed:          { label: 'Diagnosed',             pill: 'intake',    queue: 'intake' },
-  quote_sent:         { label: 'Quote Sent',            pill: 'intake',    queue: 'intake' },
-  awaiting_approval:  { label: 'Awaiting Approval',     pill: 'awaiting',  queue: 'intake' },
-  parts_sourced:      { label: 'Parts Sourced',         pill: 'approved',  queue: 'approved' },
-  ready_for_delivery: { label: 'Ready for Delivery',    pill: 'approved',  queue: 'approved' },
-  completed:          { label: 'Completed',             pill: 'completed', queue: 'completed' },
-  rejected:           { label: 'Rejected – Non-Repairable', pill: 'rejected',  queue: 'rejected' },
-  returned:           { label: 'Returned Without Repair',   pill: 'returned',  queue: 'returned' },
+  new:                { label: 'New',                        pill: 'intake' },
+  diagnosed:          { label: 'Diagnosed',                  pill: 'intake' },
+  quote_sent:         { label: 'Quote Sent',                 pill: 'intake' },
+  awaiting_approval:  { label: 'Awaiting Approval',          pill: 'awaiting' },
+  parts_sourced:      { label: 'Parts Sourced',              pill: 'approved' },
+  ready_for_delivery: { label: 'Ready for Delivery',         pill: 'approved' },
+  completed:          { label: 'Completed',                  pill: 'completed' },
+  rejected:           { label: 'Rejected – Non-Repairable',  pill: 'rejected' },
+  returned:           { label: 'Returned Without Repair',    pill: 'returned' },
 };
 
-const INTAKE_FLOW   = ['new', 'diagnosed', 'quote_sent', 'awaiting_approval'];
-const APPROVED_FLOW = ['parts_sourced', 'ready_for_delivery', 'completed'];
+// What options appear in the dropdown based on current status
+const TRANSITIONS = {
+  new:                ['diagnosed', 'rejected', 'returned'],
+  diagnosed:          ['quote_sent', 'rejected', 'returned'],
+  quote_sent:         ['awaiting_approval', 'rejected', 'returned'],
+  awaiting_approval:  ['parts_sourced', 'rejected', 'returned'],
+  parts_sourced:      ['ready_for_delivery', 'rejected', 'returned'],
+  ready_for_delivery: ['completed', 'rejected', 'returned'],
+  completed:          [],
+  rejected:           [],
+  returned:           [],
+};
+
+const TRANSITION_LABELS = {
+  diagnosed:          'Diagnosed',
+  quote_sent:         'Quote Sent',
+  awaiting_approval:  'Awaiting Approval → Move to Approved Queue',
+  parts_sourced:      'Parts Sourced',
+  ready_for_delivery: 'Ready for Delivery',
+  completed:          'Completed',
+  rejected:           'Rejected – Non-Repairable',
+  returned:           'Returned Without Repair',
+};
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -24,63 +45,24 @@ function fmtCost(val) {
   return 'SAR ' + Number(val).toLocaleString('en-SA', { minimumFractionDigits: 2 });
 }
 
-const NEXT_LABELS = {
-  diagnosed:          'Mark as Diagnosed',
-  quote_sent:         'Mark Quote Sent',
-  awaiting_approval:  'Send for Approval',
-  parts_sourced:      'Mark Parts Sourced',
-  ready_for_delivery: 'Mark Ready for Delivery',
-  completed:          'Mark Completed',
-};
-
 export default function TicketDetailModal({ ticket, onClose, onStatusChange, statusHistory }) {
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [completionData, setCompletionData] = useState({
-    parts_cost:       ticket.parts_cost || '',
-    labour_cost:      ticket.labour_cost || '',
-    actual_cost:      ticket.actual_cost || '',
+    parts_cost: ticket.parts_cost || '',
+    labour_cost: ticket.labour_cost || '',
+    actual_cost: ticket.actual_cost || '',
     completion_notes: ticket.completion_notes || '',
   });
-  const [rejectionReason, setRejectionReason] = useState(ticket.rejection_reason || '');
-  const [returnReason,    setReturnReason]    = useState(ticket.return_reason || '');
-  const [showOutcome,     setShowOutcome]     = useState(false);
-  const [selectedOutcome, setSelectedOutcome] = useState(null);
+  const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   if (!ticket) return null;
 
-  const meta        = STATUS_META[ticket.status] || STATUS_META['new'];
-  const isIntake    = INTAKE_FLOW.includes(ticket.status);
-  const isApproved  = APPROVED_FLOW.slice(0, -1).includes(ticket.status);
+  const meta = STATUS_META[ticket.status] || STATUS_META['new'];
+  const transitions = TRANSITIONS[ticket.status] || [];
+  const isTerminal = transitions.length === 0;
   const isCompleted = ticket.status === 'completed';
-  const isTerminal  = ['completed', 'rejected', 'returned'].includes(ticket.status);
-
-  const nextIntake   = () => { const i = INTAKE_FLOW.indexOf(ticket.status);   return i >= 0 && i < INTAKE_FLOW.length   - 1 ? INTAKE_FLOW[i + 1]   : null; };
-  const nextApproved = () => { const i = APPROVED_FLOW.indexOf(ticket.status); return i >= 0 && i < APPROVED_FLOW.length - 1 ? APPROVED_FLOW[i + 1] : null; };
-
-  const handleAdvance = async (nextStatus, extra = {}) => {
-    setSaving(true);
-    await onStatusChange(ticket.ticket_number, nextStatus, extra);
-    setSaving(false);
-    onClose();
-  };
-
-  const handleOutcomeSubmit = async () => {
-    if (!selectedOutcome) return;
-    setSaving(true);
-    if (selectedOutcome === 'completed') {
-      const extra = { ...completionData };
-      if (!extra.actual_cost && extra.parts_cost && extra.labour_cost) {
-        extra.actual_cost = Number(extra.parts_cost) + Number(extra.labour_cost);
-      }
-      await onStatusChange(ticket.ticket_number, 'completed', extra);
-    } else if (selectedOutcome === 'rejected') {
-      await onStatusChange(ticket.ticket_number, 'rejected', { rejection_reason: rejectionReason });
-    } else if (selectedOutcome === 'return_nr') {
-      await onStatusChange(ticket.ticket_number, 'returned', { return_reason: returnReason });
-    }
-    setSaving(false);
-    onClose();
-  };
 
   const totalCost = () => {
     const p = Number(completionData.parts_cost) || 0;
@@ -88,9 +70,44 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
     return p + l > 0 ? fmtCost(p + l) : '—';
   };
 
-  const ni = nextIntake();
-  const na = nextApproved();
-  const canShowOutcome = ticket.status === 'ready_for_delivery' || isIntake || (isApproved && na === 'completed');
+  const handleUpdate = async () => {
+    if (!selectedStatus) { setError('Please select a status.'); return; }
+    setSaving(true); setError('');
+    try {
+      const extra = {};
+      if (selectedStatus === 'completed') {
+        const pc = completionData.parts_cost ? Number(completionData.parts_cost) : null;
+        const lc = completionData.labour_cost ? Number(completionData.labour_cost) : null;
+        const ac = completionData.actual_cost ? Number(completionData.actual_cost) : (pc && lc ? pc + lc : pc || lc || null);
+        Object.assign(extra, { parts_cost: pc, labour_cost: lc, actual_cost: ac, completion_notes: completionData.completion_notes || null });
+      }
+      if (selectedStatus === 'rejected') extra.rejection_reason = reason || null;
+      if (selectedStatus === 'returned') extra.return_reason = reason || null;
+      await onStatusChange(ticket.ticket_number, selectedStatus, extra);
+      onClose();
+    } catch (e) {
+      setError(e.message || 'Update failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const btnStyle = () => {
+    if (selectedStatus === 'completed')  return { background: '#1e7e4a' };
+    if (selectedStatus === 'rejected')   return { background: '#b91c1c' };
+    if (selectedStatus === 'returned')   return { background: '#7c3aed' };
+    if (selectedStatus === 'awaiting_approval') return { background: '#b36b00' };
+    return { background: '#1a6fc4' };
+  };
+
+  const btnLabel = () => {
+    if (!selectedStatus) return 'Update Status';
+    if (selectedStatus === 'completed') return 'Mark Completed';
+    if (selectedStatus === 'rejected')  return 'Mark Rejected';
+    if (selectedStatus === 'returned')  return 'Mark Returned';
+    if (selectedStatus === 'awaiting_approval') return 'Approve & Move to Approved Queue';
+    return 'Update Status';
+  };
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -112,13 +129,13 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
             <div className="detail-row"><span className="detail-key">Issue</span><span className="detail-val" style={{ maxWidth: 340, textAlign: 'right' }}>{ticket.issue_description || '—'}</span></div>
           </div>
 
-          {/* Repair Details */}
+          {/* Repair */}
           <div className="detail-section">
             <div className="detail-section-title">Repair Details</div>
             <div className="detail-row"><span className="detail-key">Priority</span><span className="detail-val">{ticket.priority ? ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1) : 'Normal'}</span></div>
             <div className="detail-row"><span className="detail-key">Technician</span><span className="detail-val">{ticket.technician || '—'}</span></div>
             <div className="detail-row"><span className="detail-key">Estimated Cost</span><span className="detail-val">{fmtCost(ticket.estimated_cost)}</span></div>
-            <div className="detail-row"><span className="detail-key">Notes</span><span className="detail-val">{ticket.notes || '—'}</span></div>
+            {ticket.notes && <div className="detail-row"><span className="detail-key">Notes</span><span className="detail-val">{ticket.notes}</span></div>}
           </div>
 
           {/* Completed cost breakdown */}
@@ -135,15 +152,13 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
             </div>
           )}
 
-          {/* Rejected reason */}
+          {/* Rejection / return reason */}
           {ticket.status === 'rejected' && ticket.rejection_reason && (
             <div className="detail-section">
               <div className="detail-section-title">Rejection Reason</div>
               <p style={{ fontSize: 13, color: '#b91c1c', lineHeight: 1.6 }}>{ticket.rejection_reason}</p>
             </div>
           )}
-
-          {/* Returned reason */}
           {ticket.status === 'returned' && ticket.return_reason && (
             <div className="detail-section">
               <div className="detail-section-title">Return Reason</div>
@@ -151,24 +166,20 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
             </div>
           )}
 
-          {/* Outcome selector (when applicable) */}
-          {!isTerminal && (showOutcome || canShowOutcome) && (
-            <div className="outcome-section">
-              <div className="outcome-section-title">Select Outcome</div>
-              <div className="outcome-btn-group">
-                <button className={`outcome-btn ${selectedOutcome === 'completed' ? 'selected complete' : ''}`} onClick={() => setSelectedOutcome('completed')}>
-                  ✓ Completed
-                </button>
-                <button className={`outcome-btn ${selectedOutcome === 'rejected' ? 'selected reject' : ''}`} onClick={() => setSelectedOutcome('rejected')}>
-                  ✕ Rejected – Non-Repairable
-                </button>
-                <button className={`outcome-btn ${selectedOutcome === 'return_nr' ? 'selected return_nr' : ''}`} onClick={() => setSelectedOutcome('return_nr')}>
-                  ↩ Returned Without Repair
-                </button>
-              </div>
+          {/* Status update dropdown */}
+          {!isTerminal && (
+            <div className="detail-section">
+              <div className="detail-section-title">Update Status</div>
+              <select className="form-select" value={selectedStatus} onChange={e => { setSelectedStatus(e.target.value); setReason(''); setError(''); }}>
+                <option value="">— Select next status —</option>
+                {transitions.map(s => (
+                  <option key={s} value={s}>{TRANSITION_LABELS[s]}</option>
+                ))}
+              </select>
 
-              {selectedOutcome === 'completed' && (
-                <div className="form-grid" style={{ marginTop: 10 }}>
+              {/* Completion fields */}
+              {selectedStatus === 'completed' && (
+                <div className="form-grid" style={{ marginTop: 14 }}>
                   <div className="form-group">
                     <label className="form-label">Parts Cost (SAR)</label>
                     <input className="form-input" type="number" placeholder="0.00"
@@ -182,13 +193,13 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
                       onChange={e => setCompletionData(d => ({ ...d, labour_cost: e.target.value }))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Total (override)</label>
+                    <label className="form-label">Total Override (SAR)</label>
                     <input className="form-input" type="number" placeholder="Auto-calculated"
                       value={completionData.actual_cost}
                       onChange={e => setCompletionData(d => ({ ...d, actual_cost: e.target.value }))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Computed</label>
+                    <label className="form-label">Computed Total</label>
                     <div style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, color: '#1e7e4a' }}>{totalCost()}</div>
                   </div>
                   <div className="form-group full">
@@ -200,27 +211,31 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
                 </div>
               )}
 
-              {selectedOutcome === 'rejected' && (
-                <div className="form-group full" style={{ marginTop: 10 }}>
+              {/* Rejection reason */}
+              {selectedStatus === 'rejected' && (
+                <div className="form-group" style={{ marginTop: 14 }}>
                   <label className="form-label">Rejection Reason (optional)</label>
                   <textarea className="form-input" placeholder="e.g. Beyond economical repair, parts unavailable..."
-                    value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} />
+                    value={reason} onChange={e => setReason(e.target.value)} />
                 </div>
               )}
 
-              {selectedOutcome === 'return_nr' && (
-                <div className="form-group full" style={{ marginTop: 10 }}>
+              {/* Return reason */}
+              {selectedStatus === 'returned' && (
+                <div className="form-group" style={{ marginTop: 14 }}>
                   <label className="form-label">Return Reason (optional)</label>
                   <textarea className="form-input" placeholder="e.g. Customer declined quote, requested return..."
-                    value={returnReason} onChange={e => setReturnReason(e.target.value)} />
+                    value={reason} onChange={e => setReason(e.target.value)} />
                 </div>
               )}
+
+              {error && <p style={{ color: '#e24b4a', fontSize: 12, marginTop: 8 }}>{error}</p>}
             </div>
           )}
 
           {/* Status History */}
           {statusHistory && statusHistory.length > 0 && (
-            <div className="detail-section" style={{ marginTop: 16 }}>
+            <div className="detail-section">
               <div className="detail-section-title">Status History</div>
               <div className="history-timeline">
                 {statusHistory.map((h, i) => (
@@ -228,9 +243,9 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
                     <span className="history-dot" />
                     <span className="history-text">
                       <strong>{STATUS_META[h.to_status]?.label || h.to_status}</strong>
-                      {h.from_status && <> from {STATUS_META[h.from_status]?.label || h.from_status}</>}
-                      {' — '}{fmtDate(h.changed_at)}
-                      {h.notes && <> · {h.notes}</>}
+                      {h.from_status ? <> — from {STATUS_META[h.from_status]?.label || h.from_status}</> : ' — Initial status'}
+                      {' · '}{fmtDate(h.changed_at)}
+                      {h.notes && <> · "{h.notes}"</>}
                     </span>
                   </div>
                 ))}
@@ -248,50 +263,9 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
 
         <div className="modal-foot">
           <button className="btn-cancel" onClick={onClose}>Close</button>
-
-          {/* Intake advance buttons */}
-          {isIntake && ni && ni !== 'awaiting_approval' && !showOutcome && (
-            <button className="btn-submit" style={{ background: '#1a6fc4' }} disabled={saving}
-              onClick={() => handleAdvance(ni)}>
-              {saving ? '...' : NEXT_LABELS[ni]}
-            </button>
-          )}
-          {ticket.status === 'quote_sent' && !showOutcome && (
-            <button className="btn-submit" style={{ background: '#b36b00' }} disabled={saving}
-              onClick={() => handleAdvance('awaiting_approval')}>
-              {saving ? '...' : 'Send for Approval'}
-            </button>
-          )}
-          {ticket.status === 'awaiting_approval' && !showOutcome && (
-            <button className="btn-submit" style={{ background: '#1e7e4a' }} disabled={saving}
-              onClick={() => handleAdvance('parts_sourced')}>
-              {saving ? '...' : '✓ Approve'}
-            </button>
-          )}
-
-          {/* Approved queue advance (non-final steps) */}
-          {isApproved && na && na !== 'completed' && !showOutcome && (
-            <button className="btn-submit" style={{ background: '#0f6e56' }} disabled={saving}
-              onClick={() => handleAdvance(na)}>
-              {saving ? '...' : NEXT_LABELS[na]}
-            </button>
-          )}
-
-          {/* Show outcome selector for any active ticket */}
-          {!isTerminal && !showOutcome && (
-            <button className="btn-submit" style={{ background: '#6b7280' }} onClick={() => setShowOutcome(true)}>
-              Set Outcome ▾
-            </button>
-          )}
-
-          {/* Confirm outcome */}
-          {showOutcome && selectedOutcome && (
-            <button
-              className={selectedOutcome === 'rejected' ? 'btn-reject' : selectedOutcome === 'return_nr' ? 'btn-return' : 'btn-submit'}
-              style={selectedOutcome === 'completed' ? { background: '#1e7e4a' } : {}}
-              disabled={saving}
-              onClick={handleOutcomeSubmit}>
-              {saving ? '...' : selectedOutcome === 'completed' ? 'Confirm Completed' : selectedOutcome === 'rejected' ? 'Confirm Rejected' : 'Confirm Return'}
+          {!isTerminal && (
+            <button className="btn-submit" style={btnStyle()} disabled={saving || !selectedStatus} onClick={handleUpdate}>
+              {saving ? 'Saving...' : btnLabel()}
             </button>
           )}
         </div>
