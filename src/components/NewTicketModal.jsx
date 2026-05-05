@@ -18,6 +18,7 @@ export default function NewTicketModal({ onClose, onSubmit }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
+    if (saving) return; // prevent double submission
     if (!form.device_type.trim()) { setError('Device type is required.'); return; }
     if (!form.issue_description.trim()) { setError('Issue description is required.'); return; }
     setSaving(true); setError('');
@@ -26,7 +27,6 @@ export default function NewTicketModal({ onClose, onSubmit }) {
       onClose();
     } catch (e) {
       setError(e.message || 'Failed to create ticket.');
-    } finally {
       setSaving(false);
     }
   };
