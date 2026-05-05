@@ -6,7 +6,7 @@ import TicketDetailModal from './components/TicketDetailModal';
 import SupabaseModal from './components/SupabaseModal';
 import ToastContainer from './components/Toast';
 import { useToast } from './lib/useToast';
- 
+
 // ── Status config ──────────────────────────────────────────────────────────────
 const STATUS_META = {
   new:                { label: 'New',                        pill: 'intake' },
@@ -19,14 +19,14 @@ const STATUS_META = {
   rejected:           { label: 'Rejected – Non-Repairable',  pill: 'rejected' },
   returned:           { label: 'Returned Without Repair',    pill: 'returned' },
 };
- 
+
 const INTAKE_STATUSES    = ['new', 'diagnosed', 'quote_sent', 'awaiting_approval'];
 const APPROVED_STATUSES  = ['parts_sourced', 'ready_for_delivery'];
 const COMPLETED_STATUSES = ['completed'];
 const REJECTED_STATUSES  = ['rejected'];
 const RETURNED_STATUSES  = ['returned'];
 const ALL_STATUSES       = [...INTAKE_STATUSES, ...APPROVED_STATUSES, ...COMPLETED_STATUSES, ...REJECTED_STATUSES, ...RETURNED_STATUSES];
- 
+
 const TAB_CONFIG = [
   { key: 'all',       label: 'All',       statuses: ALL_STATUSES },
   { key: 'intake',    label: 'Intake',    statuses: INTAKE_STATUSES },
@@ -35,7 +35,7 @@ const TAB_CONFIG = [
   { key: 'rejected',  label: 'Rejected',  statuses: REJECTED_STATUSES },
   { key: 'returned',  label: 'Returned',  statuses: RETURNED_STATUSES },
 ];
- 
+
 const DEMO_TICKETS = [
   { ticket_number: 'QZ-100001', device_type: 'Siemens S7-400 PLC', serial: '6ES7 412-2XK07', issue_description: 'CPU module not booting', priority: 'high', technician: 'Ahmad K.', estimated_cost: 4500, parts_cost: null, labour_cost: null, actual_cost: null, completion_notes: null, rejection_reason: null, return_reason: null, notes: '', status: 'new', created_at: new Date(Date.now()-2*86400000).toISOString(), updated_at: new Date().toISOString() },
   { ticket_number: 'QZ-100002', device_type: 'Allen Bradley CompactLogix', serial: '1769-L36ERMS', issue_description: 'I/O card replacement required', priority: 'normal', technician: 'Omar S.', estimated_cost: 1800, parts_cost: null, labour_cost: null, actual_cost: null, completion_notes: null, rejection_reason: null, return_reason: null, notes: '', status: 'quote_sent', created_at: new Date(Date.now()-5*86400000).toISOString(), updated_at: new Date().toISOString() },
@@ -45,11 +45,11 @@ const DEMO_TICKETS = [
   { ticket_number: 'QZ-100006', device_type: 'Fanuc CNC Controller', serial: 'A06B-0223', issue_description: 'Main board damaged beyond repair', priority: 'high', technician: 'Ahmad K.', estimated_cost: 12000, parts_cost: null, labour_cost: null, actual_cost: null, completion_notes: null, rejection_reason: 'Main PCB shorted, replacement exceeds device value', return_reason: null, notes: '', status: 'rejected', created_at: new Date(Date.now()-7*86400000).toISOString(), updated_at: new Date().toISOString() },
   { ticket_number: 'QZ-100007', device_type: 'Mitsubishi FR-A740 Drive', serial: 'FR-A740-7.5K', issue_description: 'Intermittent fault, no clear diagnosis', priority: 'low', technician: 'Omar S.', estimated_cost: 2800, parts_cost: null, labour_cost: null, actual_cost: null, completion_notes: null, rejection_reason: null, return_reason: 'Customer declined quote', notes: '', status: 'returned', created_at: new Date(Date.now()-6*86400000).toISOString(), updated_at: new Date().toISOString() },
 ];
- 
+
 function genId() { return 'QZ-' + String(Date.now()).slice(-6) + Math.floor(Math.random()*10); }
 function fmtCost(val) { if (!val && val !== 0) return '—'; return 'SAR ' + Number(val).toLocaleString('en-SA', { minimumFractionDigits: 0 }); }
 function pct(n, d) { if (!d) return '0'; return (n / d * 100).toFixed(1); }
- 
+
 function StatusPill({ status }) {
   const meta = STATUS_META[status] || STATUS_META['new'];
   return <span className={`status-pill ${meta.pill}`}><span className="dot" />{meta.label}</span>;
@@ -84,7 +84,7 @@ function OutcomeBar({ tickets }) {
     </div>
   );
 }
- 
+
 // ── App ────────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tickets, setTickets]           = useState([]);
@@ -99,15 +99,15 @@ export default function App() {
   const [showDetail, setShowDetail]     = useState(null);
   const [showSupabase, setShowSupabase] = useState(false);
   const [statusHistory, setStatusHistory] = useState([]);
- 
+
   const [supaUrl, setSupaUrl] = useState(() => localStorage.getItem('qz_supa_url') || process.env.REACT_APP_SUPABASE_URL || '');
   const [supaKey, setSupaKey] = useState(() => localStorage.getItem('qz_supa_key') || process.env.REACT_APP_SUPABASE_ANON_KEY || '');
   const [connected, setConnected] = useState(false);
   const [connLabel, setConnLabel] = useState('Local mode');
- 
+
   const supaRef = useRef(null);
   const { toasts, addToast } = useToast();
- 
+
   // ── Init Supabase ────────────────────────────────────────────
   const initSupabase = useCallback(async (url, key) => {
     if (!url || !key) {
@@ -141,10 +141,10 @@ export default function App() {
       setLoading(false);
     }
   }, []);
- 
+
   useEffect(() => { initSupabase(supaUrl, supaKey); }, []); // eslint-disable-line
   useEffect(() => { if (!connected) localStorage.setItem('qz_tickets_local', JSON.stringify(tickets)); }, [tickets, connected]);
- 
+
   // ── Load history ──────────────────────────────────────────────
   const openDetail = useCallback(async (ticket) => {
     setShowDetail(ticket);
@@ -155,7 +155,7 @@ export default function App() {
       setStatusHistory(data || []);
     } catch { setStatusHistory([]); }
   }, []);
- 
+
   // ── Create ticket ─────────────────────────────────────────────
   const createTicket = useCallback(async (form) => {
     const ticket = {
@@ -183,12 +183,12 @@ export default function App() {
     }
     addToast('Ticket created: ' + ticket.ticket_number, 'success');
   }, [addToast]);
- 
+
   // ── Change status ─────────────────────────────────────────────
   const changeStatus = useCallback(async (ticketNumber, newStatus, extra = {}) => {
     const updated_at = new Date().toISOString();
     const updates = { status: newStatus, updated_at };
- 
+
     if (newStatus === 'completed') {
       const pc = extra.parts_cost != null ? Number(extra.parts_cost) : null;
       const lc = extra.labour_cost != null ? Number(extra.labour_cost) : null;
@@ -197,7 +197,7 @@ export default function App() {
     }
     if (newStatus === 'rejected') updates.rejection_reason = extra.rejection_reason || null;
     if (newStatus === 'returned') updates.return_reason    = extra.return_reason    || null;
- 
+
     if (supaRef.current) {
       const current = tickets.find(t => t.ticket_number === ticketNumber);
       const { error } = await supaRef.current.from('tickets').update(updates).eq('ticket_number', ticketNumber);
@@ -211,9 +211,9 @@ export default function App() {
         });
       } catch(e) {}
     }
- 
+
     setTickets(prev => prev.map(t => t.ticket_number === ticketNumber ? { ...t, ...updates } : t));
- 
+
     const msgs = {
       diagnosed: 'Marked as diagnosed', quote_sent: 'Quote marked as sent',
       awaiting_approval: 'Sent for approval — moved to Approved Queue',
@@ -222,7 +222,7 @@ export default function App() {
     };
     addToast(msgs[newStatus] || 'Status updated', ['rejected','returned'].includes(newStatus) ? 'error' : 'success');
   }, [addToast, tickets]);
- 
+
   const handleSupabaseSave = useCallback((url, key) => {
     localStorage.setItem('qz_supa_url', url);
     localStorage.setItem('qz_supa_key', key);
@@ -231,10 +231,10 @@ export default function App() {
     initSupabase(url, key);
     addToast('Supabase connected', 'success');
   }, [initSupabase, addToast]);
- 
+
   // ── Filtering ─────────────────────────────────────────────────
   const tabCfg = TAB_CONFIG.find(t => t.key === tab);
- 
+
   const inRange = (t) => {
     if (!dateFrom && !dateTo) return true;
     const d = new Date(t.created_at);
@@ -242,7 +242,7 @@ export default function App() {
     if (dateTo   && d > new Date(dateTo + 'T23:59:59')) return false;
     return true;
   };
- 
+
   const filtered = tickets.filter(t => {
     if (!tabCfg.statuses.includes(t.status)) return false;
     if (priorityFilter && t.priority !== priorityFilter) return false;
@@ -257,7 +257,7 @@ export default function App() {
     }
     return true;
   });
- 
+
   // ── Stats ─────────────────────────────────────────────────────
   const ranged   = tickets.filter(inRange);
   const countIn  = (ss) => ranged.filter(t => ss.includes(t.status)).length;
@@ -268,9 +268,9 @@ export default function App() {
   const nActive  = countIn([...INTAKE_STATUSES, ...APPROVED_STATUSES]);
   const nAwaiting = ranged.filter(t => t.status === 'awaiting_approval').length;
   const expenses = ranged.filter(t => t.status === 'completed' && t.actual_cost).reduce((a, t) => a + Number(t.actual_cost), 0);
- 
+
   const statusOptions = tabCfg.statuses.map(s => ({ value: s, label: STATUS_META[s]?.label || s }));
- 
+
   return (
     <div className="app">
       {/* Topbar */}
@@ -289,7 +289,7 @@ export default function App() {
           <button className="btn-primary" onClick={() => setShowNew(true)}>+ New Ticket</button>
         </div>
       </div>
- 
+
       {/* Nav */}
       <div className="nav">
         {TAB_CONFIG.map(t => {
@@ -305,7 +305,7 @@ export default function App() {
           );
         })}
       </div>
- 
+
       <div className="content">
         {/* Date filter */}
         <div className="date-filter-bar">
@@ -315,7 +315,7 @@ export default function App() {
           <input className="date-input" type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)} />
           {(dateFrom||dateTo) && <button className="date-clear" onClick={() => { setDateFrom(''); setDateTo(''); }}>✕ Clear</button>}
         </div>
- 
+
         {/* Stats row 1 */}
         <div className="dashboard-grid">
           <div className="stat-card s-total">
@@ -339,7 +339,7 @@ export default function App() {
             <div className="stat-pct" style={{ color:'#7c3aed' }}>{pct(nRet,total)}% of received</div>
           </div>
         </div>
- 
+
         {/* Stats row 2 */}
         <div className="dashboard-grid" style={{ marginBottom:'1.25rem' }}>
           <div className="stat-card s-intake">
@@ -358,10 +358,10 @@ export default function App() {
             <div className="stat-sub">Parts + Labour for all completed tickets</div>
           </div>
         </div>
- 
+
         {/* Outcome bar */}
         <OutcomeBar tickets={ranged} />
- 
+
         {/* Toolbar */}
         <div className="toolbar">
           <div className="toolbar-left">
@@ -387,7 +387,7 @@ export default function App() {
             </select>
           </div>
         </div>
- 
+
         {/* Table */}
         <div className="table-wrap">
           <table className="ticket-table">
@@ -434,7 +434,7 @@ export default function App() {
           </table>
         </div>
       </div>
- 
+
       {showNew && <NewTicketModal onClose={() => setShowNew(false)} onSubmit={createTicket} />}
       {showDetail && (
         <TicketDetailModal
