@@ -49,6 +49,28 @@ const DEMO_TICKETS = [
 function genId() { return 'QZ-' + String(Date.now()).slice(-6) + Math.floor(Math.random()*10); }
 function fmtCost(val) { if (!val && val !== 0) return '—'; return 'SAR ' + Number(val).toLocaleString('en-SA', { minimumFractionDigits: 0 }); }
 function pct(n, d) { if (!d) return '0'; return (n / d * 100).toFixed(1); }
+function exportToCSV(tickets) {
+  const STATUS_LABELS = { new:'New', diagnosed:'Diagnosed', quote_sent:'Quote Sent', awaiting_approval:'Awaiting Approval', parts_sourced:'Parts Sourced', ready_for_delivery:'Ready for Delivery', completed:'Completed', rejected:'Rejected - Non-Repairable', returned:'Returned Without Repair' };
+  const headers = ['Ticket #','Device Type','Serial/Model','Issue','Priority','Status','Technician','Est. Cost (SAR)','Parts Cost (SAR)','Labour Cost (SAR)','Actual Cost (SAR)','Completion Notes','Rejection Reason','Return Reason','Notes','Created','Updated'];
+  const rows = tickets.map(t => [
+    t.ticket_number, t.device_type, t.serial || '', t.issue_description || '',
+    t.priority || '', STATUS_LABELS[t.status] || t.status, t.technician || '',
+    t.estimated_cost || '', t.parts_cost || '', t.labour_cost || '', t.actual_cost || '',
+    t.completion_notes || '', t.rejection_reason || '', t.return_reason || '', t.notes || '',
+    t.created_at ? new Date(t.created_at).toLocaleString('en-SA') : '',
+    t.updated_at ? new Date(t.updated_at).toLocaleString('en-SA') : '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'QZ-Tickets-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
 
 function StatusPill({ status }) {
   const meta = STATUS_META[status] || STATUS_META['new'];
@@ -286,6 +308,7 @@ export default function App() {
           <div className="connection-badge" onClick={() => setShowSupabase(true)}>
             <span className={`conn-dot ${connected ? 'live' : ''}`} />{connLabel}
           </div>
+          <button className="btn-export" onClick={() => exportToCSV(tickets)} title="Export all tickets to CSV">↓ Export</button>
           <button className="btn-primary" onClick={() => setShowNew(true)}>+ New Ticket</button>
         </div>
       </div>

@@ -32,6 +32,8 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text-1
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .btn-primary { background: var(--accent); color: #000; border: none; padding: 8px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-export { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); border: 0.5px solid rgba(255,255,255,0.2); padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
+.btn-export:hover { background: rgba(255,255,255,0.18); color: #fff; }
 .connection-badge { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); border: 0.5px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: rgba(255,255,255,0.6); font-family: var(--font-mono); cursor: pointer; transition: background 0.15s; }
 .connection-badge:hover { background: rgba(255,255,255,0.13); }
 .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #888; }
