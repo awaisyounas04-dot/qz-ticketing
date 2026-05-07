@@ -510,7 +510,7 @@ export default function App() {
                   <td>
                     <div className="action-wrap">
                       <button className="action-btn view" onClick={() => openDetail(ticket)}>Open</button>
-                      <button className="action-btn delete" onClick={() => setConfirmDelete(ticket)} title="Delete ticket">🗑</button>
+                      <button className="action-btn delete" onClick={() => setConfirmDelete(ticket)}>Delete</button>
                     </div>
                   </td>
                 </tr>
