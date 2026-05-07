@@ -46,7 +46,14 @@ const DEMO_TICKETS = [
   { ticket_number: 'QZ-100007', device_type: 'Mitsubishi FR-A740 Drive', serial: 'FR-A740-7.5K', issue_description: 'Intermittent fault, no clear diagnosis', priority: 'low', technician: 'Omar S.', estimated_cost: 2800, parts_cost: null, labour_cost: null, actual_cost: null, completion_notes: null, rejection_reason: null, return_reason: 'Customer declined quote', notes: '', status: 'returned', created_at: new Date(Date.now()-6*86400000).toISOString(), updated_at: new Date().toISOString() },
 ];
 
-function genId() { return 'QZ-' + String(Date.now()).slice(-6) + Math.floor(Math.random()*10); }
+function genId(tickets) {
+  // Find highest existing ticket number and increment
+  const nums = (tickets || [])
+    .map(t => { const m = t.ticket_number?.match(/QZ-(\d+)/); return m ? parseInt(m[1]) : 0; })
+    .filter(n => n > 0);
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 26501;
+  return 'QZ-' + next;
+}
 function fmtCost(val) { if (!val && val !== 0) return '—'; return 'SAR ' + Number(val).toLocaleString('en-SA', { minimumFractionDigits: 0 }); }
 function pct(n, d) { if (!d) return '0'; return (n / d * 100).toFixed(1); }
 function exportToCSV(tickets) {
@@ -121,6 +128,8 @@ export default function App() {
   const [showDetail, setShowDetail]     = useState(null);
   const [showSupabase, setShowSupabase] = useState(false);
   const [statusHistory, setStatusHistory] = useState([]);
+  const [editTicket, setEditTicket]     = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [supaUrl, setSupaUrl] = useState(() => localStorage.getItem('qz_supa_url') || process.env.REACT_APP_SUPABASE_URL || '');
   const [supaKey, setSupaKey] = useState(() => localStorage.getItem('qz_supa_key') || process.env.REACT_APP_SUPABASE_ANON_KEY || '');
@@ -180,8 +189,22 @@ export default function App() {
 
   // ── Create ticket ─────────────────────────────────────────────
   const createTicket = useCallback(async (form) => {
+    // Get next sequential ticket number
+    let ticketNum;
+    if (supaRef.current) {
+      const { data: maxData } = await supaRef.current
+        .from('tickets')
+        .select('ticket_number')
+        .ilike('ticket_number', 'QZ-%')
+        .order('ticket_number', { ascending: false })
+        .limit(1);
+      const lastNum = maxData?.[0]?.ticket_number?.match(/QZ-(\d+)/)?.[1];
+      ticketNum = 'QZ-' + ((lastNum ? parseInt(lastNum) : 26500) + 1);
+    } else {
+      ticketNum = genId(tickets);
+    }
     const ticket = {
-      ticket_number: genId(),
+      ticket_number: ticketNum,
       device_type: form.device_type.trim(),
       serial: (form.serial || '').trim(),
       issue_description: form.issue_description.trim(),
@@ -244,6 +267,40 @@ export default function App() {
     };
     addToast(msgs[newStatus] || 'Status updated', ['rejected','returned'].includes(newStatus) ? 'error' : 'success');
   }, [addToast, tickets]);
+
+  // ── Delete ticket ────────────────────────────────────────────
+  const deleteTicket = useCallback(async (ticketNumber) => {
+    if (supaRef.current) {
+      await supaRef.current.from('ticket_status_history').delete().eq('ticket_number', ticketNumber);
+      const { error } = await supaRef.current.from('tickets').delete().eq('ticket_number', ticketNumber);
+      if (error) { addToast('Delete failed: ' + error.message, 'error'); return; }
+    }
+    setTickets(prev => prev.filter(t => t.ticket_number !== ticketNumber));
+    addToast('Ticket deleted', 'error');
+    setConfirmDelete(null);
+  }, [addToast]);
+
+  // ── Edit ticket ───────────────────────────────────────────────
+  const editTicketSave = useCallback(async (form) => {
+    const updated_at = new Date().toISOString();
+    const updates = {
+      device_type: form.device_type.trim(),
+      serial: (form.serial || '').trim(),
+      issue_description: form.issue_description.trim(),
+      priority: form.priority,
+      technician: (form.technician || '').trim(),
+      estimated_cost: form.estimated_cost ? Number(form.estimated_cost) : null,
+      notes: (form.notes || '').trim(),
+      updated_at,
+    };
+    if (supaRef.current) {
+      const { error } = await supaRef.current.from('tickets').update(updates).eq('ticket_number', editTicket.ticket_number);
+      if (error) throw error;
+    }
+    setTickets(prev => prev.map(t => t.ticket_number === editTicket.ticket_number ? { ...t, ...updates } : t));
+    addToast('Ticket updated', 'success');
+    setEditTicket(null);
+  }, [addToast, editTicket]);
 
   const handleSupabaseSave = useCallback((url, key) => {
     localStorage.setItem('qz_supa_url', url);
@@ -450,7 +507,12 @@ export default function App() {
                   <td style={{ fontFamily:'var(--font-mono)', fontSize:12 }}>
                     {ticket.status==='completed' ? fmtCost(ticket.actual_cost) : fmtCost(ticket.estimated_cost)}
                   </td>
-                  <td><button className="action-btn view" onClick={() => openDetail(ticket)}>Open</button></td>
+                  <td>
+                    <div className="action-wrap">
+                      <button className="action-btn view" onClick={() => openDetail(ticket)}>Open</button>
+                      <button className="action-btn delete" onClick={() => setConfirmDelete(ticket)} title="Delete ticket">🗑</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -458,16 +520,44 @@ export default function App() {
         </div>
       </div>
 
-      {showNew && <NewTicketModal onClose={() => setShowNew(false)} onSubmit={createTicket} />}
+      {(showNew || editTicket) && (
+        <NewTicketModal
+          onClose={() => { setShowNew(false); setEditTicket(null); }}
+          onSubmit={editTicket ? editTicketSave : createTicket}
+          existingTickets={tickets}
+          editTicket={editTicket}
+        />
+      )}
       {showDetail && (
         <TicketDetailModal
           ticket={showDetail}
           onClose={() => { setShowDetail(null); setStatusHistory([]); }}
           onStatusChange={changeStatus}
           statusHistory={statusHistory}
+          onEdit={(ticket) => setEditTicket(ticket)}
         />
       )}
       {showSupabase && <SupabaseModal onClose={() => setShowSupabase(false)} onSave={handleSupabaseSave} currentUrl={supaUrl} currentKey={supaKey} />}
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head" style={{ background: '#b91c1c' }}>
+              <span className="modal-title">Delete Ticket</span>
+              <button className="modal-close" onClick={() => setConfirmDelete(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 14, color: 'var(--text-1)', lineHeight: 1.6 }}>
+                Are you sure you want to delete <strong>{confirmDelete.ticket_number}</strong> ({confirmDelete.device_type})?
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>This action cannot be undone.</p>
+            </div>
+            <div className="modal-foot">
+              <button className="btn-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn-reject" onClick={() => deleteTicket(confirmDelete.ticket_number)}>Delete Ticket</button>
+            </div>
+          </div>
+        </div>
+      )}
       <ToastContainer toasts={toasts} />
     </div>
   );
