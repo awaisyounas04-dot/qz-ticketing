@@ -12,7 +12,6 @@ const STATUS_META = {
   returned:           { label: 'Returned Without Repair',    pill: 'returned' },
 };
 
-// What options appear in the dropdown based on current status
 const TRANSITIONS = {
   new:                ['diagnosed', 'rejected', 'returned'],
   diagnosed:          ['quote_sent', 'rejected', 'returned'],
@@ -45,7 +44,7 @@ function fmtCost(val) {
   return 'SAR ' + Number(val).toLocaleString('en-SA', { minimumFractionDigits: 2 });
 }
 
-export default function TicketDetailModal({ ticket, onClose, onStatusChange, statusHistory }) {
+export default function TicketDetailModal({ ticket, onClose, onStatusChange, statusHistory, onEdit }) {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [completionData, setCompletionData] = useState({
     parts_cost: ticket.parts_cost || '',
@@ -93,18 +92,18 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
   };
 
   const btnStyle = () => {
-    if (selectedStatus === 'completed')  return { background: '#1e7e4a' };
-    if (selectedStatus === 'rejected')   return { background: '#b91c1c' };
-    if (selectedStatus === 'returned')   return { background: '#7c3aed' };
+    if (selectedStatus === 'completed')         return { background: '#1e7e4a' };
+    if (selectedStatus === 'rejected')          return { background: '#b91c1c' };
+    if (selectedStatus === 'returned')          return { background: '#7c3aed' };
     if (selectedStatus === 'awaiting_approval') return { background: '#b36b00' };
     return { background: '#1a6fc4' };
   };
 
   const btnLabel = () => {
-    if (!selectedStatus) return 'Update Status';
-    if (selectedStatus === 'completed') return 'Mark Completed';
-    if (selectedStatus === 'rejected')  return 'Mark Rejected';
-    if (selectedStatus === 'returned')  return 'Mark Returned';
+    if (!selectedStatus)                        return 'Update Status';
+    if (selectedStatus === 'completed')         return 'Mark Completed';
+    if (selectedStatus === 'rejected')          return 'Mark Rejected';
+    if (selectedStatus === 'returned')          return 'Mark Returned';
     if (selectedStatus === 'awaiting_approval') return 'Approve & Move to Approved Queue';
     return 'Update Status';
   };
@@ -129,7 +128,7 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
             <div className="detail-row"><span className="detail-key">Issue</span><span className="detail-val" style={{ maxWidth: 340, textAlign: 'right' }}>{ticket.issue_description || '—'}</span></div>
           </div>
 
-          {/* Repair */}
+          {/* Repair Details */}
           <div className="detail-section">
             <div className="detail-section-title">Repair Details</div>
             <div className="detail-row"><span className="detail-key">Priority</span><span className="detail-val">{ticket.priority ? ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1) : 'Normal'}</span></div>
@@ -152,13 +151,15 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
             </div>
           )}
 
-          {/* Rejection / return reason */}
+          {/* Rejection reason */}
           {ticket.status === 'rejected' && ticket.rejection_reason && (
             <div className="detail-section">
               <div className="detail-section-title">Rejection Reason</div>
               <p style={{ fontSize: 13, color: '#b91c1c', lineHeight: 1.6 }}>{ticket.rejection_reason}</p>
             </div>
           )}
+
+          {/* Return reason */}
           {ticket.status === 'returned' && ticket.return_reason && (
             <div className="detail-section">
               <div className="detail-section-title">Return Reason</div>
@@ -170,14 +171,14 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
           {!isTerminal && (
             <div className="detail-section">
               <div className="detail-section-title">Update Status</div>
-              <select className="form-select" value={selectedStatus} onChange={e => { setSelectedStatus(e.target.value); setReason(''); setError(''); }}>
+              <select className="form-select" value={selectedStatus}
+                onChange={e => { setSelectedStatus(e.target.value); setReason(''); setError(''); }}>
                 <option value="">— Select next status —</option>
                 {transitions.map(s => (
                   <option key={s} value={s}>{TRANSITION_LABELS[s]}</option>
                 ))}
               </select>
 
-              {/* Completion fields */}
               {selectedStatus === 'completed' && (
                 <div className="form-grid" style={{ marginTop: 14 }}>
                   <div className="form-group">
@@ -211,7 +212,6 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
                 </div>
               )}
 
-              {/* Rejection reason */}
               {selectedStatus === 'rejected' && (
                 <div className="form-group" style={{ marginTop: 14 }}>
                   <label className="form-label">Rejection Reason (optional)</label>
@@ -220,7 +220,6 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
                 </div>
               )}
 
-              {/* Return reason */}
               {selectedStatus === 'returned' && (
                 <div className="form-group" style={{ marginTop: 14 }}>
                   <label className="form-label">Return Reason (optional)</label>
@@ -263,6 +262,7 @@ export default function TicketDetailModal({ ticket, onClose, onStatusChange, sta
 
         <div className="modal-foot">
           <button className="btn-cancel" onClick={onClose}>Close</button>
+          <button className="btn-edit" onClick={() => { onClose(); onEdit(ticket); }}>✎ Edit Ticket</button>
           {!isTerminal && (
             <button className="btn-submit" style={btnStyle()} disabled={saving || !selectedStatus} onClick={handleUpdate}>
               {saving ? 'Saving...' : btnLabel()}

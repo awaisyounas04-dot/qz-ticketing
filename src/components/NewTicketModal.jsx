@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const EMPTY = {
   device_type: '',
@@ -10,23 +10,59 @@ const EMPTY = {
   notes: ''
 };
 
-export default function NewTicketModal({ onClose, onSubmit }) {
-  const [form, setForm] = useState(EMPTY);
+export default function NewTicketModal({ onClose, onSubmit, existingTickets = [], editTicket = null }) {
+  const isEdit = !!editTicket;
+  const [form, setForm] = useState(isEdit ? {
+    device_type: editTicket.device_type || '',
+    serial: editTicket.serial || '',
+    issue_description: editTicket.issue_description || '',
+    priority: editTicket.priority || 'normal',
+    technician: editTicket.technician || '',
+    estimated_cost: editTicket.estimated_cost || '',
+    notes: editTicket.notes || '',
+  } : EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (editTicket) {
+      setForm({
+        device_type: editTicket.device_type || '',
+        serial: editTicket.serial || '',
+        issue_description: editTicket.issue_description || '',
+        priority: editTicket.priority || 'normal',
+        technician: editTicket.technician || '',
+        estimated_cost: editTicket.estimated_cost || '',
+        notes: editTicket.notes || '',
+      });
+    }
+  }, [editTicket]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (saving) return; // prevent double submission
+    if (saving) return;
     if (!form.device_type.trim()) { setError('Device type is required.'); return; }
     if (!form.issue_description.trim()) { setError('Issue description is required.'); return; }
+
+    // Duplicate serial check (only if serial is provided)
+    if (form.serial.trim()) {
+      const duplicate = existingTickets.find(t => {
+        if (isEdit && t.ticket_number === editTicket.ticket_number) return false; // skip self
+        return t.serial && t.serial.trim().toLowerCase() === form.serial.trim().toLowerCase();
+      });
+      if (duplicate) {
+        setError(`Serial number "${form.serial.trim()}" already exists on ticket ${duplicate.ticket_number} (${duplicate.device_type}). Please check before proceeding.`);
+        return;
+      }
+    }
+
     setSaving(true); setError('');
     try {
       await onSubmit(form);
       onClose();
     } catch (e) {
-      setError(e.message || 'Failed to create ticket.');
+      setError(e.message || 'Failed to save ticket.');
       setSaving(false);
     }
   };
@@ -35,7 +71,7 @@ export default function NewTicketModal({ onClose, onSubmit }) {
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <span className="modal-title">New Repair Ticket</span>
+          <span className="modal-title">{isEdit ? `Edit Ticket — ${editTicket.ticket_number}` : 'New Repair Ticket'}</span>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
@@ -46,7 +82,7 @@ export default function NewTicketModal({ onClose, onSubmit }) {
             </div>
             <div className="form-group">
               <label className="form-label">Serial / Model #</label>
-              <input className="form-input" value={form.serial} onChange={e => set('serial', e.target.value)} placeholder="Optional" />
+              <input className="form-input" value={form.serial} onChange={e => { set('serial', e.target.value); setError(''); }} placeholder="Optional" />
             </div>
             <div className="form-group">
               <label className="form-label">Priority</label>
@@ -73,12 +109,16 @@ export default function NewTicketModal({ onClose, onSubmit }) {
               <input className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Optional internal notes..." />
             </div>
           </div>
-          {error && <p style={{ color: '#e24b4a', fontSize: 12, marginTop: 10 }}>{error}</p>}
+          {error && (
+            <div style={{ marginTop: 12, padding: '10px 12px', background: '#fef2f2', border: '0.5px solid #fca5a5', borderRadius: 7, fontSize: 12, color: '#b91c1c', lineHeight: 1.6 }}>
+              ⚠ {error}
+            </div>
+          )}
         </div>
         <div className="modal-foot">
           <button className="btn-cancel" onClick={onClose}>Cancel</button>
           <button className="btn-submit" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Creating...' : 'Create Ticket'}
+            {saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Ticket')}
           </button>
         </div>
       </div>
