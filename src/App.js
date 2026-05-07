@@ -479,7 +479,7 @@ export default function App() {
                 <th style={{ width:88  }}>Priority</th>
                 <th style={{ width:185 }}>Status</th>
                 <th style={{ width:110 }}>Cost</th>
-                <th style={{ width:80  }}>Action</th>
+                <th style={{ width:140 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
