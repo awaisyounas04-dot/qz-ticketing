@@ -141,6 +141,10 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text-1
 .action-btn:hover { background: var(--surface-2); color: var(--text-1); }
 .action-btn.view   { border-color: #1a6fc4; color: #1a6fc4; }
 .action-btn.view:hover { background: #e8f0fb; }
+.action-btn.delete { border-color: #fca5a5; color: #b91c1c; font-size: 13px; padding: 4px 8px; }
+.action-btn.delete:hover { background: #fef2f2; border-color: #b91c1c; }
+.btn-edit { background: none; border: 0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.15)); border-radius: var(--radius-md); padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); font-family: var(--font-sans); transition: all 0.15s; }
+.btn-edit:hover { background: var(--surface-2); color: var(--text-1); }
 .done-label { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
 
 /* ── Empty state ── */
